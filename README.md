@@ -1,10 +1,4 @@
-﻿# WeatherApp
-
-Django project scaffold created in `D:\Projects\WeatherApp`.
-
-## Next steps
-
-1. Install Python (if not installed) and create/activate a virtual environment.
+﻿1. Install Python (if not installed) and create/activate a virtual environment.
 2. Install dependencies:
    - `pip install -r requirements.txt`
 3. Run migrations and start the server:
