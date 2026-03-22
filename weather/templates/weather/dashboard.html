@@ -1,0 +1,369 @@
+﻿<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Weather Dashboard</title>
+
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+
+    <style>
+      :root {
+        --bg: #0b1220;
+        --panel: #121b2e;
+        --panel2: #0f182a;
+        --text: #e9eefc;
+        --muted: #a9b4d6;
+        --accent: #7aa2ff;
+        --bad: #ff6b6b;
+        --good: #3ddc97;
+        --border: rgba(255, 255, 255, 0.08);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica,
+          Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        background: radial-gradient(900px 600px at 15% 10%, rgba(122, 162, 255, 0.22), transparent 60%),
+          radial-gradient(900px 600px at 90% 30%, rgba(61, 220, 151, 0.14), transparent 60%),
+          var(--bg);
+        color: var(--text);
+      }
+
+      header {
+        padding: 28px 18px 12px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 22px;
+        letter-spacing: 0.2px;
+      }
+
+      .sub {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .wrap {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 14px 18px 28px;
+        display: grid;
+        grid-template-columns: 420px 1fr;
+        gap: 14px;
+      }
+
+      @media (max-width: 980px) {
+        .wrap { grid-template-columns: 1fr; }
+      }
+
+      .card {
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 14px;
+        backdrop-filter: blur(10px);
+      }
+
+      .row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .row > * { flex: 1; }
+
+      label {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 6px;
+      }
+
+      input, select, button {
+        width: 100%;
+        padding: 10px 10px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: rgba(18, 27, 46, 0.8);
+        color: var(--text);
+        outline: none;
+      }
+
+      button {
+        flex: 0.6;
+        cursor: pointer;
+        background: linear-gradient(180deg, rgba(122, 162, 255, 0.32), rgba(122, 162, 255, 0.18));
+        border: 1px solid rgba(122, 162, 255, 0.35);
+        font-weight: 600;
+      }
+
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .grid {
+        margin-top: 12px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .metric {
+        background: rgba(15, 24, 42, 0.7);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 12px;
+      }
+
+      .metric .k {
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .metric .v {
+        margin-top: 6px;
+        font-size: 18px;
+        font-weight: 650;
+      }
+
+      .big {
+        padding: 14px;
+        border-radius: 14px;
+        background: rgba(15, 24, 42, 0.7);
+        border: 1px solid var(--border);
+      }
+
+      .place {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: baseline;
+      }
+
+      .place .where {
+        font-size: 16px;
+        font-weight: 700;
+      }
+
+      .place .desc {
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .status {
+        margin-top: 10px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .status.bad { color: var(--bad); }
+      .status.good { color: var(--good); }
+
+      #map {
+        height: 520px;
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+      }
+
+      .note {
+        margin-top: 10px;
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.4;
+      }
+
+      a { color: var(--accent); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+    </style>
+  </head>
+
+  <body>
+    <header>
+      <h1>Weather Dashboard</h1>
+      <div class="sub">OpenStreetMap via Leaflet + OpenWeatherMap current conditions</div>
+    </header>
+
+    <main class="wrap">
+      <section class="card">
+        <div class="row">
+          <div>
+            <label for="city">City</label>
+            <input id="city" name="city" placeholder="e.g., Berlin" value="{{ default_city|default:'Berlin' }}" />
+          </div>
+          <div style="max-width: 150px; flex: 0.55">
+            <label for="units">Units</label>
+            <select id="units" name="units">
+              <option value="metric">Metric</option>
+              <option value="imperial">Imperial</option>
+              <option value="standard">Standard</option>
+            </select>
+          </div>
+          <div style="max-width: 140px; flex: 0.45">
+            <label>&nbsp;</label>
+            <button id="go" type="button">Fetch</button>
+          </div>
+        </div>
+
+        <div class="big" style="margin-top: 12px">
+          <div class="place">
+            <div>
+              <div class="where" id="where">—</div>
+              <div class="desc" id="desc">—</div>
+            </div>
+            <div style="text-align: right">
+              <div class="k" style="color: var(--muted); font-size: 12px">Temperature</div>
+              <div class="v" id="temp" style="font-size: 30px">—</div>
+            </div>
+          </div>
+          <div class="status" id="status">Enter a city and click Fetch.</div>
+        </div>
+
+        <div class="grid">
+          <div class="metric">
+            <div class="k">Feels like</div>
+            <div class="v" id="feels">—</div>
+          </div>
+          <div class="metric">
+            <div class="k">Humidity</div>
+            <div class="v" id="humidity">—</div>
+          </div>
+          <div class="metric">
+            <div class="k">Pressure</div>
+            <div class="v" id="pressure">—</div>
+          </div>
+          <div class="metric">
+            <div class="k">Wind</div>
+            <div class="v" id="wind">—</div>
+          </div>
+        </div>
+
+        <div class="note">
+          Backend endpoint: <code>/weather/?city=Berlin</code>.
+        </div>
+      </section>
+
+      <section class="card" style="padding: 12px">
+        <div id="map"></div>
+      </section>
+    </main>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+
+    <script>
+      const defaultUnits = "{{ default_units|default:'metric' }}";
+      const unitsEl = document.getElementById("units");
+      if (["metric", "imperial", "standard"].includes(defaultUnits)) unitsEl.value = defaultUnits;
+
+      const map = L.map("map", { zoomControl: true });
+      const tiles = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      });
+      tiles.addTo(map);
+
+      let marker = null;
+      map.setView([52.52, 13.405], 10); // default: Berlin
+
+      const els = {
+        where: document.getElementById("where"),
+        desc: document.getElementById("desc"),
+        temp: document.getElementById("temp"),
+        feels: document.getElementById("feels"),
+        humidity: document.getElementById("humidity"),
+        pressure: document.getElementById("pressure"),
+        wind: document.getElementById("wind"),
+        status: document.getElementById("status"),
+        go: document.getElementById("go"),
+        city: document.getElementById("city"),
+        units: unitsEl,
+      };
+
+      function unitSuffix(units) {
+        if (units === "imperial") return { temp: "°F", speed: "mph" };
+        if (units === "standard") return { temp: "K", speed: "m/s" };
+        return { temp: "°C", speed: "m/s" };
+      }
+
+      function setStatus(text, kind) {
+        els.status.textContent = text;
+        els.status.classList.remove("bad", "good");
+        if (kind) els.status.classList.add(kind);
+      }
+
+      async function fetchWeather() {
+        const city = (els.city.value || "").trim();
+        const units = els.units.value;
+        if (!city) {
+          setStatus("Please enter a city.", "bad");
+          return;
+        }
+
+        els.go.disabled = true;
+        setStatus("Fetching weather…", null);
+
+        try {
+          const res = await fetch(`/weather/?city=${encodeURIComponent(city)}&units=${encodeURIComponent(units)}`);
+          const data = await res.json();
+
+          if (!res.ok || data.error) {
+            const detail = data.details && data.details.message ? ` (${data.details.message})` : "";
+            setStatus((data.error || "Request failed") + detail, "bad");
+            return;
+          }
+
+          const u = unitSuffix(data.units);
+
+          const place = [data.city, data.country].filter(Boolean).join(", ") || city;
+          els.where.textContent = place;
+          els.desc.textContent = data.description || "—";
+          els.temp.textContent = (data.temperature ?? "—") + (data.temperature == null ? "" : u.temp);
+          els.feels.textContent = (data.feels_like ?? "—") + (data.feels_like == null ? "" : u.temp);
+          els.humidity.textContent = data.humidity == null ? "—" : `${data.humidity}%`;
+          els.pressure.textContent = data.pressure == null ? "—" : `${data.pressure} hPa`;
+          els.wind.textContent = data.wind_speed == null ? "—" : `${data.wind_speed} ${u.speed}`;
+
+          if (typeof data.lat === "number" && typeof data.lon === "number") {
+            const ll = [data.lat, data.lon];
+            map.setView(ll, 10);
+            if (marker) marker.remove();
+            marker = L.marker(ll).addTo(map);
+            marker.bindPopup(`<b>${place}</b><br/>${els.desc.textContent}`).openPopup();
+          }
+
+          setStatus("Updated.", "good");
+        } catch (err) {
+          setStatus("Unexpected error while fetching weather.", "bad");
+        } finally {
+          els.go.disabled = false;
+        }
+      }
+
+      els.go.addEventListener("click", fetchWeather);
+      els.city.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") fetchWeather();
+      });
+
+      // Initial load
+      fetchWeather();
+    </script>
+  </body>
+</html>
